@@ -1,0 +1,36 @@
+# docker-compose.yml
+version: '3.8'
+
+services:
+  microservice:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: moleculer-microservice
+    restart: unless-stopped
+    env_file: .env
+    ports:
+      - "${API_PORT:-3000}:3000"
+    networks:
+      - microservice-network
+    depends_on:
+      - redis
+
+  redis:
+    image: redis:alpine
+    container_name: microservice-redis
+    restart: unless-stopped
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis-data:/data
+    networks:
+      - microservice-network
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-""}
+
+networks:
+  microservice-network:
+    driver: bridge
+
+volumes:
+  redis-data:
