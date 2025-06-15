@@ -85,16 +85,16 @@ export const ServerlessTransport: ServiceSchema = {
           };
         } catch (error) {
           serverlessLogger.error({
-            error: error.message,
-            stack: error.stack,
+            error: (error as any).message,
+            stack: (error as any).stack,
             event
           }, 'Error processing serverless event');
           
           return {
             success: false,
             error: {
-              code: error.code || 'INTERNAL_ERROR',
-              message: error.message || 'An unexpected error occurred'
+              code: (error as any).code || 'INTERNAL_ERROR',
+              message: (error as any).message || 'An unexpected error occurred'
             }
           };
         }
@@ -168,7 +168,7 @@ export const ServerlessTransport: ServiceSchema = {
           'GET': 'get',
           'PUT': 'update',
           'DELETE': 'remove'
-        }[event.httpMethod] || 'default';
+        }[event.httpMethod as string] || 'default';
       }
       
       // Parse request body if present

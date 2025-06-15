@@ -103,11 +103,11 @@ export class ApiGatewayTransport {
                 // Mock token validation
                 return { id: '1', username: 'user' };
               } catch (err) {
-                throw new ApiGateway.Errors.UnAuthorizedError(ApiGateway.Errors.ERR_INVALID_TOKEN);
+                throw new ApiGateway.Errors.UnAuthorizedError(ApiGateway.Errors.ERR_INVALID_TOKEN, "Invalid token provided.");
               }
             }
           }
-          throw new ApiGateway.Errors.UnAuthorizedError(ApiGateway.Errors.ERR_NO_TOKEN);
+          throw new ApiGateway.Errors.UnAuthorizedError(ApiGateway.Errors.ERR_NO_TOKEN, "No authorization token was found.");
         },
         
         authorize: async (ctx: any, route: any, req: any) => {

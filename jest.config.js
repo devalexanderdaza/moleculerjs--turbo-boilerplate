@@ -32,5 +32,6 @@ module.exports = {
       diagnostics: false
     }
   },
+  setupFilesAfterEnv: ['./tests/setupTests.ts'], // Added reflect-metadata setup
   verbose: true
 };

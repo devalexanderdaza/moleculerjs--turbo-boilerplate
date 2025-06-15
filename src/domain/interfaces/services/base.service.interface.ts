@@ -1,5 +1,5 @@
 // src/domain/interfaces/services/base.service.interface.ts
-import { IServiceContext, IServiceResponse } from "../../../types";
+import { IServiceContext, IServiceResponse, IPaginatedResult } from "../../../types";
 
 /**
  * Base service interface for all domain services
@@ -17,7 +17,7 @@ export interface IBaseService<T> {
    * @param ctx - Service context
    * @param query - Optional query parameters
    */
-  list(ctx: IServiceContext, query?: Record<string, any>): Promise<IServiceResponse<T[]>>;
+  list(ctx: IServiceContext, query?: Record<string, any>): Promise<IServiceResponse<IPaginatedResult<T>>>;
   
   /**
    * Create a new entity

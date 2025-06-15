@@ -28,7 +28,7 @@ export const QueueTransport: ServiceSchema = {
       }
     });
 
-    this.redis.on('error', (err) => {
+    this.redis.on('error', (err: Error) => {
       queueLogger.error(err, 'Redis connection error');
     });
 

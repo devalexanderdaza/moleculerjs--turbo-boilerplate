@@ -14,15 +14,18 @@ import logger from '../utils/logger';
   name: 'sample',
   version: 1,
 })
-class SampleServiceSchema implements ServiceSchema {
-  private sampleService = di.resolve('sampleService');
+class SampleServiceSchema { // Removed "implements ServiceSchema"
+  // public name!: string; // No longer needed as ServiceSchema is not directly implemented
+  // public name = 'sample'; // Removed: Caused "TypeError: Cannot assign to read only property 'name'" with moleculer-decorators
+  private sampleService!: import('../../src/application/services/sample.service').SampleService; // Type it properly
   private logger = logger.child({ service: 'sample' });
 
   /**
    * Service created lifecycle event handler
    */
   created(): void {
-    this.logger.info('Sample service created');
+    this.sampleService = di.resolve('sampleService');
+    this.logger.info('Sample service created and dependencies resolved');
   }
 
   /**
@@ -55,11 +58,20 @@ class SampleServiceSchema implements ServiceSchema {
 
       this.logger.debug({ page, pageSize, filter }, 'List samples request');
       
-      const result = await this.sampleService.getAll(filter, page, pageSize);
+      // Pass Moleculer context (ctx) to the application service
+      // The application service now returns IServiceResponse
+      const serviceResponse = await this.sampleService.list(ctx, { filter, page, pageSize });
+
+      if (!serviceResponse.success) {
+        // Convert IServiceResponse error to Moleculer error or re-throw
+        // For now, let's assume serviceResponse.error has { code, message }
+        // This part might need more sophisticated error handling later
+        throw new Error(serviceResponse.error?.message || 'Unknown error from service');
+      }
       
       return {
         success: true,
-        data: result
+        data: serviceResponse.data // This should be IPaginatedResult<ISampleEntity>
       };
     } catch (error) {
       this.logger.error(error, 'Error in list samples action');
@@ -67,8 +79,8 @@ class SampleServiceSchema implements ServiceSchema {
       return {
         success: false,
         error: {
-          code: error.code || 'INTERNAL_ERROR',
-          message: error.message
+          code: (error as any).code || 'INTERNAL_ERROR',
+          message: (error as Error).message
         }
       };
     }
@@ -88,21 +100,29 @@ class SampleServiceSchema implements ServiceSchema {
       
       this.logger.debug({ id }, 'Get sample by ID request');
       
-      const sample = await this.sampleService.getById(id);
+      const serviceResponse = await this.sampleService.get(ctx, id);
+
+      if (!serviceResponse.success) {
+        if (serviceResponse.error?.code === 'NOT_FOUND') {
+          throw new NotFoundError('Sample', id); // Or use Moleculer specific errors
+        }
+        throw new Error(serviceResponse.error?.message || 'Unknown error from service');
+      }
       
       return {
         success: true,
-        data: sample
+        data: serviceResponse.data
       };
     } catch (error) {
       this.logger.error(error, `Error in get sample action for ID: ${ctx.params.id}`);
       
+      // Handle specific errors thrown by the above logic or re-throw if necessary
       if (error instanceof NotFoundError) {
         return {
           success: false,
           error: {
-            code: 'NOT_FOUND',
-            message: error.message
+            code: 'NOT_FOUND', // This should match the error code expected by clients
+            message: (error as Error).message
           }
         };
       }
@@ -110,8 +130,8 @@ class SampleServiceSchema implements ServiceSchema {
       return {
         success: false,
         error: {
-          code: error.code || 'INTERNAL_ERROR',
-          message: error.message
+          code: (error as any).code || 'INTERNAL_ERROR',
+          message: (error as Error).message
         }
       };
     }
@@ -139,26 +159,33 @@ class SampleServiceSchema implements ServiceSchema {
       
       this.logger.debug({ name, status }, 'Create sample request');
       
-      const sample = await this.sampleService.create({
+      const serviceResponse = await this.sampleService.create(ctx, {
         name,
         description,
         status: status || 'pending',
         metadata
       });
+
+      if (!serviceResponse.success) {
+        if (serviceResponse.error?.code === 'VALIDATION_ERROR') {
+           throw new ValidationError(serviceResponse.error.message);
+        }
+        throw new Error(serviceResponse.error?.message || 'Unknown error from service');
+      }
       
       return {
         success: true,
-        data: sample
+        data: serviceResponse.data
       };
     } catch (error) {
       this.logger.error(error, 'Error in create sample action');
-      
+
       if (error instanceof ValidationError) {
         return {
           success: false,
           error: {
-            code: 'VALIDATION_ERROR',
-            message: error.message
+            code: 'VALIDATION_ERROR', // This should match the error code expected by clients
+            message: (error as Error).message
           }
         };
       }
@@ -166,8 +193,8 @@ class SampleServiceSchema implements ServiceSchema {
       return {
         success: false,
         error: {
-          code: error.code || 'INTERNAL_ERROR',
-          message: error.message
+          code: (error as any).code || 'INTERNAL_ERROR',
+          message: (error as Error).message
         }
       };
     }
@@ -197,21 +224,30 @@ class SampleServiceSchema implements ServiceSchema {
       
       this.logger.debug({ id, ...updateData }, 'Update sample request');
       
-      const sample = await this.sampleService.update(id, updateData);
+      const serviceResponse = await this.sampleService.update(ctx, id, updateData);
+
+      if (!serviceResponse.success) {
+        if (serviceResponse.error?.code === 'NOT_FOUND') {
+          throw new NotFoundError('Sample', id);
+        } else if (serviceResponse.error?.code === 'VALIDATION_ERROR') {
+          throw new ValidationError(serviceResponse.error.message);
+        }
+        throw new Error(serviceResponse.error?.message || 'Unknown error from service');
+      }
       
       return {
         success: true,
-        data: sample
+        data: serviceResponse.data
       };
     } catch (error) {
       this.logger.error(error, `Error in update sample action for ID: ${ctx.params.id}`);
-      
+
       if (error instanceof NotFoundError) {
         return {
           success: false,
           error: {
             code: 'NOT_FOUND',
-            message: error.message
+            message: (error as Error).message
           }
         };
       }
@@ -221,7 +257,7 @@ class SampleServiceSchema implements ServiceSchema {
           success: false,
           error: {
             code: 'VALIDATION_ERROR',
-            message: error.message
+            message: (error as Error).message
           }
         };
       }
@@ -229,8 +265,8 @@ class SampleServiceSchema implements ServiceSchema {
       return {
         success: false,
         error: {
-          code: error.code || 'INTERNAL_ERROR',
-          message: error.message
+          code: (error as any).code || 'INTERNAL_ERROR',
+          message: (error as Error).message
         }
       };
     }
@@ -250,21 +286,28 @@ class SampleServiceSchema implements ServiceSchema {
       
       this.logger.debug({ id }, 'Delete sample request');
       
-      const result = await this.sampleService.delete(id);
+      const serviceResponse = await this.sampleService.delete(ctx, id);
+
+      if (!serviceResponse.success) {
+         if (serviceResponse.error?.code === 'NOT_FOUND') {
+          throw new NotFoundError('Sample', id);
+        }
+        throw new Error(serviceResponse.error?.message || 'Unknown error from service');
+      }
       
       return {
         success: true,
-        data: result
+        data: serviceResponse.data
       };
     } catch (error) {
       this.logger.error(error, `Error in delete sample action for ID: ${ctx.params.id}`);
-      
+
       if (error instanceof NotFoundError) {
         return {
           success: false,
           error: {
             code: 'NOT_FOUND',
-            message: error.message
+            message: (error as Error).message
           }
         };
       }
@@ -272,8 +315,8 @@ class SampleServiceSchema implements ServiceSchema {
       return {
         success: false,
         error: {
-          code: error.code || 'INTERNAL_ERROR',
-          message: error.message
+          code: (error as any).code || 'INTERNAL_ERROR',
+          message: (error as Error).message
         }
       };
     }
@@ -297,12 +340,14 @@ class SampleServiceSchema implements ServiceSchema {
       
       // Handle the queue message based on its content
       // This is just an example - implement your actual logic here
+      // Note: For simplicity, not deeply handling IServiceResponse here.
+      // In a real app, you'd check response.success and response.error from these calls.
       if (data.action === 'create') {
-        await this.sampleService.create(data.sample);
+        await this.sampleService.create(ctx, data.sample);
       } else if (data.action === 'update' && data.id) {
-        await this.sampleService.update(data.id, data.sample);
+        await this.sampleService.update(ctx, data.id, data.sample);
       } else if (data.action === 'delete' && data.id) {
-        await this.sampleService.delete(data.id);
+        await this.sampleService.delete(ctx, data.id);
       }
       
       return {
@@ -315,8 +360,8 @@ class SampleServiceSchema implements ServiceSchema {
       return {
         success: false,
         error: {
-          code: error.code || 'INTERNAL_ERROR',
-          message: error.message
+          code: (error as any).code || 'INTERNAL_ERROR',
+          message: (error as Error).message
         }
       };
     }
@@ -339,29 +384,35 @@ class SampleServiceSchema implements ServiceSchema {
       
       // Handle the serverless event based on its content
       // This is just an example - implement your actual logic here
-      let result;
+      // Note: These calls now return IServiceResponse. The result processing needs adjustment.
+      let serviceResponse;
       
       if (event.type === 'get') {
-        result = await this.sampleService.getById(event.id);
+        serviceResponse = await this.sampleService.get(ctx, event.id);
       } else if (event.type === 'list') {
-        result = await this.sampleService.getAll(
-          event.filter,
-          event.page || 1,
-          event.pageSize || 10
-        );
+        // Assuming event.filter, event.page, event.pageSize are query params
+        serviceResponse = await this.sampleService.list(ctx, {
+          filter: event.filter,
+          page: event.page || 1,
+          pageSize: event.pageSize || 10
+        });
       } else if (event.type === 'create') {
-        result = await this.sampleService.create(event.data);
+        serviceResponse = await this.sampleService.create(ctx, event.data);
       } else if (event.type === 'update') {
-        result = await this.sampleService.update(event.id, event.data);
+        serviceResponse = await this.sampleService.update(ctx, event.id, event.data);
       } else if (event.type === 'delete') {
-        result = await this.sampleService.delete(event.id);
+        serviceResponse = await this.sampleService.delete(ctx, event.id);
       } else {
         throw new Error(`Unknown event type: ${event.type}`);
+      }
+
+      if (!serviceResponse.success) {
+        throw new Error(serviceResponse.error?.message || `Error processing serverless event type: ${event.type}`);
       }
       
       return {
         success: true,
-        data: result
+        data: serviceResponse.data
       };
     } catch (error) {
       this.logger.error(error, 'Error processing serverless event');
@@ -369,8 +420,8 @@ class SampleServiceSchema implements ServiceSchema {
       return {
         success: false,
         error: {
-          code: error.code || 'INTERNAL_ERROR',
-          message: error.message
+          code: (error as any).code || 'INTERNAL_ERROR',
+          message: (error as Error).message
         }
       };
     }

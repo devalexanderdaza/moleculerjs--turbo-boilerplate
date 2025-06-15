@@ -1,5 +1,5 @@
 // src/molecular.config.ts
-import { BrokerOptions } from 'moleculer';
+import { BrokerOptions, Context, ActionHandler } from 'moleculer'; // Added Context and ActionHandler
 import { config } from './config';
 
 /**
@@ -53,7 +53,7 @@ const moleculerConfig: BrokerOptions = {
   heartbeatTimeout: 10,
   
   // Number of seconds to wait before force shutdowning if node is still has in-progress requests
-  shutdownTimeout: 10000,
+  // shutdownTimeout: 10000, // Commented out again due to TS2353 error
   
   // Tracking requests and statistics
   tracking: {
@@ -112,16 +112,16 @@ const moleculerConfig: BrokerOptions = {
   middlewares: [
     // Example middleware
     {
-      name: "Request Logger",
-      localAction: function(next) {
-        return function(ctx) {
+      localAction: function(next: ActionHandler<any>) {
+        return function(ctx: Context) {
           const startTime = process.hrtime();
-          return next(ctx).then(res => {
+          return next(ctx).then((res: any) => {
             const endTime = process.hrtime(startTime);
             const duration = (endTime[0] * 1000 + endTime[1] / 1000000).toFixed(2);
             
-            this.logger.debug({ 
-              action: ctx.action.name,
+            // Use ctx.broker.logger as 'this' can be problematic here
+            ctx.broker.logger.debug({
+              action: ctx.action!.name, // action might be null, use non-null assertion if sure it exists
               params: ctx.params, 
               meta: ctx.meta,
               duration: `${duration} ms`

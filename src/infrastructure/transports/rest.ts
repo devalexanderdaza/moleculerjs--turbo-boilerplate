@@ -1,5 +1,6 @@
 import { ServiceSchema } from 'moleculer';
 import ApiGateway from 'moleculer-web';
+import { Request, Response, NextFunction } from 'express'; // Added for typing
 import { config } from '../../config';
 import logger from '../../utils/logger';
 
@@ -91,10 +92,11 @@ export const ApiGatewayTransport: ServiceSchema = {
         use: [
           // Authentication middleware would be implemented here
           // This is just a placeholder
-          (req, res, next) => {
+          (req: Request, res: Response, next: NextFunction) => {
             const authHeader = req.headers.authorization;
             if (!authHeader) {
-              return next(new Error('Unauthorized'));
+              // Ensure error is passed to next for proper handling by MoleculerWeb or custom errorHandler
+              return next(new ApiGateway.Errors.UnAuthorizedError("NO_TOKEN", "Unauthorized"));
             }
             // Would verify token here
             next();
@@ -109,7 +111,7 @@ export const ApiGatewayTransport: ServiceSchema = {
     ],
     
     // Custom error handling
-    onError(req, res, err) {
+    onError(req: Request, res: Response, err: any) {
       apiLogger.error({
         error: err.message,
         code: err.code,
